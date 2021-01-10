@@ -159,7 +159,7 @@ async def trump(event):
 @register(outgoing=True, pattern=r"^\.ph(?: |$)(.*)")
 async def phcomment(event):
     try:
-        await event.edit("`Proses..`")
+        await event.edit("`Tunggu lagi nulis..`")
         text = event.pattern_match.group(1)
         reply = await event.get_reply_message()
         if reply:
