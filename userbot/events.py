@@ -3,8 +3,8 @@
 # Licensed under the Raphielscape Public License, Version 1.c (the "License");
 # you may not use this file except in compliance with the License.
 #
+"""Userbot module for managing events. One of the main components of the userbot."""
 
-import codecs
 import sys
 from asyncio import create_subprocess_shell as asyncsubshell
 from asyncio import subprocess as asyncsub
@@ -12,13 +12,14 @@ from os import remove
 from time import gmtime, strftime
 from traceback import format_exc
 
-import requests
 from telethon import events
 
 from userbot import BOTLOG_CHATID, LOGSPAMMER, bot
+from userbot.utils.pastebin import PasteBin
 
 
 def register(**args):
+    """Register a new event."""
     pattern = args.get("pattern", None)
     disable_edited = args.get("disable_edited", False)
     ignore_unsafe = args.get("ignore_unsafe", False)
@@ -27,7 +28,6 @@ def register(**args):
     trigger_on_fwd = args.get("trigger_on_fwd", False)
     disable_errors = args.get("disable_errors", False)
     insecure = args.get("insecure", False)
-    trigger_on_inline = args.get("trigger_on_inline", False)
 
     if pattern is not None and not pattern.startswith("(?i)"):
         args["pattern"] = "(?i)" + pattern
@@ -49,9 +49,6 @@ def register(**args):
 
     if "insecure" in args:
         del args["insecure"]
-
-    if "trigger_on_inline" in args:
-        del args["trigger_on_inline"]
 
     if pattern:
         if not ignore_unsafe:
@@ -75,10 +72,16 @@ def register(**args):
                 await check.respond("`I don't think this is a group.`")
                 return
 
-            if check.via_bot_id and not insecure and check.out:
-                return
+            try:
+                from userbot.modules.sql_helper.blacklist_sql import get_blacklist
 
-            if check.via_bot_id and not trigger_on_inline:
+                for blacklisted in get_blacklist():
+                    if str(check.chat_id) == blacklisted.chat_id:
+                        return
+            except Exception:
+                pass
+
+            if check.via_bot_id and not insecure and check.out:
                 return
 
             try:
@@ -103,10 +106,8 @@ def register(**args):
                 if not disable_errors:
                     date = strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
-                    text = "#ERROR\n"
-                    text += "If you want to, you can report it.\n"
-                    text += "just forward this message to @userbotindo.\n"
-                    text += "Nothing is logged except the fact of error and date.\n"
+                    text = "**USERBOT ERROR REPORT**\n"
+                    text += "Nothing is logged except the fact of error and date."
 
                     ftext = "========== DISCLAIMER =========="
                     ftext += "\nThis file uploaded ONLY here,"
@@ -123,13 +124,13 @@ def register(**args):
                     ftext += str(check.text)
                     ftext += "\n\nTraceback info:\n"
                     ftext += str(format_exc())
-                    ftext += "Error text:\n"
+                    ftext += "\n\nError text:\n"
                     ftext += str(sys.exc_info()[1])
                     ftext += "\n\n--------END USERBOT TRACEBACK LOG--------"
 
                     command = 'git log --pretty=format:"%an: %s" -10'
 
-                    ftext += "\n\nLast 10 commits:\n"
+                    ftext += "\n\n\nLast 10 commits:\n"
 
                     process = await asyncsubshell(
                         command, stdout=asyncsub.PIPE, stderr=asyncsub.PIPE
@@ -139,30 +140,22 @@ def register(**args):
 
                     ftext += result
 
-                    file = open("error.log", "w+")
-                    file.write(ftext)
-                    file.close()
+                    with open("error.txt", "w+") as file:
+                        file.write(ftext)
 
                     if LOGSPAMMER:
-                        await check.edit(
-                            "`Sorry, my userbot has crashed.\nThe error logs are stored in the userbot's log chat.`"
+                        await check.respond(
+                            "`Sorry, my userbot has crashed."
+                            "\nThe error logs are stored in the userbot's log chat.`"
                         )
 
-                        log = codecs.open("error.log", "r", encoding="utf-8")
-                        data = log.read()
-                        key = (
-                            requests.post(
-                                "https://nekobin.com/api/documents",
-                                json={"content": data},
-                            )
-                            .json()
-                            .get("result")
-                            .get("key")
-                        )
-                        url = f"https://nekobin.com/raw/{key}"
-                        anu = f"{text}\n`Here the error:`\nPasted to: [Nekobin]({url})"
-                        await check.client.send_message(send_to, anu)
-                        remove("error.log")
+                        async with PasteBin(ftext) as client:
+                            await client.post()
+                            if client:
+                                text += f"\n\nPasted to : [URL]({client.raw_link})"
+
+                        await check.client.send_file(send_to, "error.txt", caption=text)
+                        remove("error.txt")
             else:
                 pass
 
