@@ -64,7 +64,7 @@ async def _(event):
             msg = await event.client.forward_messages(chat, reply_message)
             response = await response
         except YouBlockedUserError:
-            await event.reply("unblock me (@stickers_to_image_bot) to work")
+            await event.reply("unblock me (@FormatFactory_bot) to work")
             return
         if response.text.startswith("Aku hanya paham stiker"):
             await event.edit(
