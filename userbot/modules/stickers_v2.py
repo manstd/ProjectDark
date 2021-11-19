@@ -54,7 +54,7 @@ async def _(event):
     if not reply_message.media:
         await event.edit("Balas di Sticker Tolol!!")
         return
-    chat = "@stickers_to_image_bot"
+    chat = "@FormatFactory_bot"
     await event.edit("Mengubah ke gambar..")
     async with event.client.conversation(chat) as conv:
         try:
